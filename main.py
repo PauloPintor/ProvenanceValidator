@@ -11,6 +11,7 @@ from Validation.result import ResultValidation
 from Validation.joint import JointValidation
 
 
+import getpass
 import argparse
 
 
@@ -24,23 +25,42 @@ def main():
         required=True,
         help="PosgreSQL, MySQL, Oracle, SQLServer, Trino, Cassandra, MongoDB",
     )
-    parser.add_argument("--h", type=str, required=True, help="Database URL")
-    parser.add_argument("--p", type=str, required=True, help="Database port")
-    parser.add_argument("--d", type=str, required=True, help="Database name")
-    parser.add_argument("--q", type=str, required=True, help="Original Query")
-    parser.add_argument("--qp", type=str, required=True, help="Query with Prov")
-    parser.add_argument("--sub", action="store_true", help="Validating subqueries")
+    parser.add_argument(
+        "--u", metavar="URL", type=str, required=True, help="Database URL"
+    )
+    parser.add_argument(
+        "--p", metavar="PORT", type=str, required=True, help="Database port"
+    )
+    parser.add_argument(
+        "--d", metavar="DATABASE", type=str, required=True, help="Database name"
+    )
+    parser.add_argument(
+        "--q", metavar="QUERY", type=str, required=True, help="Original Query"
+    )
+    parser.add_argument(
+        "--qp", metavar="QUERYPROV", type=str, required=True, help="Query with Prov"
+    )
+    parser.add_argument(
+        "--exc",
+        metavar="EXTRACOMMANDS",
+        type=str,
+        required=False,
+        help="Extra commands",
+    )
 
     # Parse arguments
     args = parser.parse_args()
+
+    # Prompt for username and password
+    username = input("Username: ")
+    password = getpass.getpass("Password: ")  # Hides input while typing
+
     db = None
     try:
 
         if args.dbms.lower() == "postgresql":
-            db = PostgreSQLConnector(
-                args.d, "paulopintor", "paulopintor", args.h, args.p
-            )
-
+            db = PostgreSQLConnector(args.d, username, password, args.u, args.p)
+            # TODO: Add other DBMS connectors
         if db is None:
             print("Invalid DBMS")
             return
@@ -56,7 +76,10 @@ def main():
 
             sql = parser.transformQuery(args.q)
 
-            original, original_columns = db.fetch_results(sql.sql())
+            if args.exc is not None:
+                original, original_columns = db.fetch_results(sql.sql(), args.exc)
+            else:
+                original, original_columns = db.fetch_results(sql.sql())
             prov, prov_columns = db.fetch_results(args.qp)
 
             result = ResultValidation(original, original_columns, prov, prov_columns)

@@ -77,11 +77,45 @@ class ResultValidation:
 
             if not toDelete:
                 if len(aggColumns) > 0:
-                    self.resultProv[i] = poly.solveAggRows(row, aggColumns, toDeleteExp)
+                    newAggColumns = []
+                    for col in aggColumns:
+                        if self.columns[col] + "_agg" in self.columnsProv:
+                            newAggColumns.append(
+                                self.columnsProv.index(self.columnsProv[col] + "_agg")
+                            )
+
+                    if len(newAggColumns) > 0:
+                        self.resultProv[i] = poly.solveAggRows(
+                            row, newAggColumns, toDeleteExp
+                        )
+                        if not self.validateAggColumns(self.resultProv[i], aggColumns):
+                            self.logger.error(
+                                "Validation of aggregation columns failed"
+                            )
+                            raise ValueError("Validation of aggregation columns failed")
+                    else:
+                        self.resultProv[i] = poly.solveAggRows(
+                            row, aggColumns, toDeleteExp
+                        )
                 newResult.append(self.resultProv[i])
 
         self.resultProv = newResult
         return self.compareResults()
+
+    def validateAggColumns(self, result, aggColumns):
+        for col in aggColumns:
+            indexCol = self.columnsProv.index(self.columns[col])
+            indexColProv = self.columnsProv.index(self.columnsProv[col] + "_agg")
+
+            # Find the first number (integer or decimal) in the string
+            number = 0
+            match = re.search(r"\d+(?:\.\d+)?", result[indexCol])
+            if match:
+                number = float(match.group())
+
+            if number != result[indexColProv]:
+                return False
+        return True
 
     def compareResults(self):
         self.result = [self.convert_decimals(row) for row in self.result]
@@ -96,6 +130,9 @@ class ResultValidation:
         resOriginal_filter = resOriginal.drop(columns=filterCols, errors="ignore")
         resProv_filter = resProv.drop(columns=filterColsProv, errors="ignore")
 
+        resProv_filter = resProv_filter.loc[
+            :, ~resProv_filter.columns.str.contains("_agg")
+        ]
         resProv_filter = resProv_filter[resOriginal_filter.columns]
 
         # Get numeric and non-numeric columns

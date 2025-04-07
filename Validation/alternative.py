@@ -1,4 +1,5 @@
 import logging
+import re
 
 from Helper.mapTokens import mapTokens
 
@@ -22,6 +23,7 @@ class AlternativeValidation:
         for i, row in enumerate(self.resultProv):
             polynomial = row[idx]
             polynomial = polynomial.replace("δ", "")
+            polynomial = polynomial.replace("⊗", "*").replace("⊕", "+")
             try:
                 # Your code that may trigger recursion error
                 result = eval(mt.replace_words_with_fixed_number(polynomial))
@@ -31,6 +33,20 @@ class AlternativeValidation:
                     exp = mt.remove_unmatched_parentheses(exp)
                     result += eval(mt.replace_words_with_fixed_number(exp))
 
-            return result == eval(str(self.result[i][self.columns.index("cntprov")]))
+            if isinstance(self.result[i][self.columns.index("cntprov")], str):
+                # Find the first number (integer or decimal) in the string
+                number = 0
+                match = re.search(
+                    r"\d+(?:\.\d+)?", self.result[i][self.columns.index("cntprov")]
+                )
+                if match:
+                    number = float(match.group())
+
+                return result == eval(str(number))
+            else:
+
+                return result == eval(
+                    str(self.result[i][self.columns.index("cntprov")])
+                )
 
         return False

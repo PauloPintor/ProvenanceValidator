@@ -26,7 +26,7 @@ class JointValidation:
         columns = [
             col
             for i, col in enumerate(self.columnsProv)
-            if i not in self.aggCols and col != "prov"
+            if i not in self.aggCols and col != "prov" and "_agg" not in col
         ]
 
         if len(columns) == 0:
@@ -65,7 +65,10 @@ class JointValidation:
                                 result, _ = sp.conjuntions(
                                     tokens, combination, columns, map
                                 )
+
                                 if len(result) == 1:
+                                    result = self.removeProvSQLCol(result, columns)
+
                                     if not self.compareRows(
                                         result[0], row, self.aggCols
                                     ):
@@ -86,7 +89,11 @@ class JointValidation:
                             result, _ = sp.conjuntions(
                                 tokens, self.tables, columns, map
                             )
+
                             if len(result) == 1:
+
+                                result = self.removeProvSQLCol(result, columns)
+
                                 if not self.compareRows(result[0], row, self.aggCols):
                                     self.logger.error(
                                         f"Rows are not equal {result[0]} != {row}"
@@ -105,12 +112,39 @@ class JointValidation:
                     return False
         return True
 
+    def removeProvSQLCol(self, result, columns):
+        if "provsql" in columns:
+            # newResult = list(result)
+            # print(columns.index("provsql"))
+            # newResult.pop(columns.index("provsql"))
+            # return list(tuple(newResult))
+            resultNew = []
+            column_position = columns.index("provsql")
+            for row in result:
+                # Create new tuple excluding the column at column_position
+                new_tuple = row[:column_position] + row[column_position + 1 :]
+                resultNew.append(new_tuple)
+
+            return resultNew
+        else:
+            return result
+
     def compareRows(self, row, rowProv, aggCols):
 
         rowProvTemp = list(rowProv)
 
-        rowProvTemp = [value for i, value in enumerate(rowProvTemp) if i not in aggCols]
+        newAggCols = aggCols
+
+        for col in aggCols:
+            agg_col_name = self.columnsProv[col] + "_agg"
+            if agg_col_name in self.columnsProv:
+                newAggCols.append(self.columnsProv.index(agg_col_name))
+
+        newAggCols.append(self.columnsProv.index("provsql"))
+
+        rowProvTemp = [
+            value for i, value in enumerate(rowProvTemp) if i not in newAggCols
+        ]
 
         rowProvTemp = tuple(rowProvTemp)
-
         return sorted(map(str, row)) == sorted(map(str, rowProvTemp))

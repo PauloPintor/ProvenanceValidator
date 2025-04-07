@@ -49,7 +49,7 @@ class mapTokens:
             return mapping[word]
 
         # Regex pattern to match words (one or more uppercase letters followed by one or more digits)
-        pattern = re.compile(r"\b[A-Z]+\d+\b")
+        pattern = re.compile(r"\b[A-Za-z]+\d+\b")
 
         # Replace the words using re.sub with the repl function
         result = pattern.sub(repl, s)

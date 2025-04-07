@@ -44,13 +44,19 @@ class PostgreSQLConnector:
         finally:
             self.close()
 
-    def fetch_results(self, query, params=None):
+    def fetch_results(self, query, extraCommands=None, params=None):
         if self.connection is None:
             self.logger.error(f"No database connection. Call connect() first.")
             raise
 
         try:
             with self.connection.cursor() as cursor:
+                if extraCommands:
+                    for command in extraCommands.split(";"):
+                        command = command.strip()
+                        if command:
+                            cursor.execute(command)
+
                 cursor.execute(query, params)
                 rows = cursor.fetchall()
 

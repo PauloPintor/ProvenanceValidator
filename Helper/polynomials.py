@@ -11,6 +11,7 @@ class solvePolynomials:
 
     def solveAggRows(self, row, aggCols, toDelete=[]):
         row = list(row)
+        mt = mapTokens()
 
         for colAgg in aggCols:
             if len(toDelete) > 0:
@@ -25,24 +26,37 @@ class solvePolynomials:
                         row[colAgg] = row[colAgg].replace(expTemp[1].strip(), "0")
 
             if "min" in row[colAgg]:
-                return min(self.extract_numbers(row[colAgg]))
+                row[colAgg] = min(self.extract_numbers(row[colAgg]))
             elif "max" in row[colAgg]:
-                return max(self.extract_numbers(row[colAgg]))
+                row[colAgg] = max(self.extract_numbers(row[colAgg]))
             else:
-                col = row[colAgg].replace("⊗", "*").replace(" . ", " * ")
+                if row[colAgg].startswith(("sum{", "count{", "avg{")):
+                    col = re.sub(r"^(sum|count|avg)\{", "", row[colAgg])
+                    col = re.sub(r"\}$", "", col)
 
-                col = re.sub(r"\+\S+", "+", col)
+                    exp = mt.replace_words_with_fixed_number(col)
+                    result = 0
+                    i = 0
+                    for expression in exp.split(","):
+                        i += 1
+                        result += eval(expression)
 
-                mt = mapTokens()
+                    if row[colAgg].startswith("avg{"):
+                        result = result / i
 
-                exp = mt.replace_words_with_fixed_number(col)
+                else:
+                    col = row[colAgg].replace("⊗", "*").replace(" . ", " * ")
 
-                exp = exp.replace("(0 )", "0")
-                exp = self.replace_parentheses_with_one(exp)
+                    col = re.sub(r"\+\S+", "+", col)
 
-                result = 0
-                for expression in exp.split("+"):
-                    result += eval(expression)
+                    exp = mt.replace_words_with_fixed_number(col)
+
+                    exp = exp.replace("(0 )", "0")
+                    exp = self.replace_parentheses_with_one(exp)
+
+                    result = 0
+                    for expression in exp.split("+"):
+                        result += eval(expression)
 
                 row[colAgg] = result
 
@@ -64,6 +78,8 @@ class solvePolynomials:
         # Find all matches
         numbers = re.findall(pattern, expression)
 
+        if len(numbers) == 0:
+            numbers = re.findall(r"\b\d+(?:\.\d+)?\b", expression)
         # Convert to float
         return [float(num) for num in numbers]
 
