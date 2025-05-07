@@ -21,30 +21,37 @@ class solveProvenance:
             else:
                 tokens[tokens.index(t.strip())] = reverse_dict[t.strip()]
 
-                aliased_list, short_alias_list = self.generate_aliased_arrays(tables)
+        aliased_list, short_alias_list = self.generate_aliased_arrays(tables)
 
-                # Generate all permutations of Set2
-                permutations_of_set2 = itertools.permutations(tokens)
+        # Generate all permutations of Set2
+        permutations_of_set2 = itertools.permutations(tokens)
 
-                # Pair each permutation of Set2 with Set1 element-wise
-                all_combinations = [
-                    list(zip(short_alias_list, permutation))
-                    for permutation in permutations_of_set2
-                ]
+        # Pair each permutation of Set2 with Set1 element-wise
+        all_combinations = [
+            list(zip(short_alias_list, permutation))
+            for permutation in permutations_of_set2
+        ]
 
-                # Generate conditions for each tuple group
-                for group in all_combinations:
-                    condition_parts = [
-                        f"{table}.prov = '{prov}'" for table, prov in group
-                    ]
-                    condition_str = " and ".join(condition_parts)
+        # Generate conditions for each tuple group
+        for group in all_combinations:
+            condition_parts = [
+                f"{table.split(' ')[1 if len(table.split(' ')) > 1 else 0]}.prov = '{prov}'"
+                for table, prov in group
+            ]
+            #condition_parts = [
+            #    f"{table}.prov = '{prov}'" for table, prov in group
+            #]
+            condition_str = " and ".join(condition_parts)
 
-                    statm = f"""
-                    SELECT  {(', ').join(columns)}
-                    FROM    {(', ').join(aliased_list)}  
-                    WHERE   {condition_str}
-                    """
-                    return self.db.fetch_results(statm)
+            statm = f"""
+            SELECT  {(', ').join(columns)}
+            FROM    {(', ').join(aliased_list)}  
+            WHERE   {condition_str}
+            """
+            rows, colnames = self.db.fetch_results(statm)
+
+            if rows:
+                return rows, colnames
         return [], []
 
     def generate_aliased_arrays(self, table_list):

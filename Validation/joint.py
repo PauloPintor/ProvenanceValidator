@@ -7,12 +7,13 @@ from Helper.provenance import solveProvenance
 
 
 class JointValidation:
-    def __init__(self, aggCols, resultProv, columnsProv, tables, db):
+    def __init__(self, aggCols, resultProv, columnsProv, tables, db, originalColumns):
         self.db = db
         self.resultProv = resultProv
         self.columnsProv = columnsProv
         self.tables = tables
         self.aggCols = aggCols
+        self.originalColumns = originalColumns
         self.logger = logging.getLogger(__name__)
 
     def validate(self):
@@ -40,12 +41,16 @@ class JointValidation:
                 joins = [t.strip() for t in polynomial.split("+")]
 
                 if len(joins) > 0:
+                    i = 0
+                    #print(len(joins))
                     for join in joins:
+                        i += 1
+                        #print(f"Join {i}: {join}")
                         join = join.replace("(", "").replace(")", "")
                         pattern = r"^\d+\*\s*"
                         join = re.sub(pattern, "", join)
 
-                        tokens = join.split("*")
+                        tokens = [x.strip() for x in join.split('*')]
 
                         sp = solveProvenance(self.db)
 
@@ -63,7 +68,7 @@ class JointValidation:
 
                             for combination in combinations:
                                 result, _ = sp.conjuntions(
-                                    tokens, combination, columns, map
+                                    tokens, combination, self.originalColumns, map
                                 )
 
                                 if len(result) == 1:
@@ -87,7 +92,7 @@ class JointValidation:
                             )
                         else:
                             result, _ = sp.conjuntions(
-                                tokens, self.tables, columns, map
+                                tokens, self.tables, self.originalColumns, map
                             )
 
                             if len(result) == 1:
@@ -140,7 +145,8 @@ class JointValidation:
             if agg_col_name in self.columnsProv:
                 newAggCols.append(self.columnsProv.index(agg_col_name))
 
-        newAggCols.append(self.columnsProv.index("provsql"))
+        if "provsql" in self.columnsProv:
+            newAggCols.append(self.columnsProv.index("provsql"))
 
         rowProvTemp = [
             value for i, value in enumerate(rowProvTemp) if i not in newAggCols

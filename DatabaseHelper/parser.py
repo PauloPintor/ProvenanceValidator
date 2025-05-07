@@ -44,7 +44,10 @@ class ParserValidator:
             tables = []
 
             for table in parsed.find_all(Table):
-                tables.append(table.name)
+                if table.name != table.alias_or_name:
+                    tables.append(table.name + " " + table.alias_or_name)
+                else:
+                    tables.append(table.name)
 
             return tables
         except sqlglot.errors.ParseError as e:
@@ -74,6 +77,10 @@ class ParserValidator:
                     and expression.key.upper() in aggregates
                 ):
                     indices.append(idx)
+                elif isinstance(expression, sqlglot.exp.Div):
+                    if expression.this:
+                        if isinstance(expression.this, Func) and expression.this.key.upper() in aggregates:
+                                indices.append(idx)
 
             return indices
 
@@ -281,6 +288,7 @@ class ParserValidator:
         from_clause = expression.args.get("from")
         subqueries = []
         if from_clause:
+            to_delete = from_clause.this
             if isinstance(from_clause.this, Subquery):
                 alias = (
                     from_clause.this.alias_or_name
@@ -307,3 +315,46 @@ class ParserValidator:
                     expression=Column(table=subquery, this="cntprov"),
                 )
             return multiplication_expr
+    
+    def getOriginalColumns(self, expression):
+        agg_types = (sqlglot.exp.Sum, sqlglot.exp.Avg, sqlglot.exp.Min, sqlglot.exp.Max, sqlglot.exp.Count)
+        from_clause = expression.args.get("from")
+        original_columns = {}
+        if from_clause:
+            if isinstance(from_clause.this, Subquery):
+                sub_query = from_clause.this.find(sqlglot.exp.Select)
+                original_columns.update(self.getOriginalColumns(sub_query))
+                for col in sub_query.expressions:
+                    if isinstance(col, Column):
+                        original_columns[col.this] = col.alias_or_name
+                    elif isinstance(col, Alias) and isinstance(col.this, Column) and col.alias != "cntprov":
+                        original_columns[col.alias] = col.this.sql()
+                    elif isinstance(col, Alias) and isinstance(col.this, Func) and not isinstance(col.this, agg_types):
+                        original_columns[col.alias] = col.this.sql()
+        joins = expression.args.get("joins", [])
+        for join in joins:
+            join_table = join.this
+            if isinstance(join_table, Subquery):
+                sub_query = join_table.find(sqlglot.exp.Select)
+                original_columns.update(self.getOriginalColumns(sub_query))
+                for col in sub_query.expressions:
+                    if isinstance(col, Column):
+                        original_columns[col.this] = col.alias_or_name
+                    elif isinstance(col, Alias) and isinstance(col.this, Column) and (col.alias != "cntprov" or col.this.name != "prov"):
+                        original_columns[col.alias] = col.this.sql()
+                    elif isinstance(col, Alias) and isinstance(col.this, Func) and not isinstance(col.this, agg_types):
+                        original_columns[col.alias] = col.this.sql()
+        return original_columns
+
+    def getAltColumns(self, original_columns, columns):
+        alt_columns = []
+        if len(original_columns) == 0:
+            return columns
+        else:
+            for col in original_columns:
+                if col in columns:
+                    alt_columns.append(original_columns[col])
+                else:
+                    alt_columns.append(col)
+            return alt_columns
+
