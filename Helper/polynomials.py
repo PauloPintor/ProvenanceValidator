@@ -9,7 +9,7 @@ class solvePolynomials:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
 
-    def solveAggRows(self, row, aggCols, toDelete=[]):
+    def solveAggRows(self, row, aggCols, toDelete=[], div_columns = {}):
         row = list(row)
         mt = mapTokens()
 
@@ -59,7 +59,12 @@ class solvePolynomials:
                         result += eval(expression)
 
                 row[colAgg] = result
-
+        if len(div_columns) > 0:
+            for col, indexes in div_columns.items():
+                row[indexes[0]] = row[indexes[0]] / row[indexes[1]]
+            
+            for col, indexes in div_columns.items():
+                row.pop(indexes[1])
         return tuple(row)
 
     def extract_numbers(self, expression):

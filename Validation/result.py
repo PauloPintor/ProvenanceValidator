@@ -6,6 +6,7 @@ import numpy as np
 
 from Helper.polynomials import solvePolynomials
 
+import time
 
 class ResultValidation:
     def __init__(self, result, columns, resultProv, columnsProv):
@@ -16,8 +17,9 @@ class ResultValidation:
         self.logger = logging.getLogger(__name__)
 
     def validate(self, aggColumns):
+        start_time = time.time()
         poly = solvePolynomials()
-
+        _aggColumnsIndex = []
         newResult = []
         toDeleteExp = []
         try:
@@ -31,6 +33,20 @@ class ResultValidation:
         except ValueError:
             self.logger.error("Column 'cntprov' not found in original query")
             raise ValueError("Column 'cntprov' not found in original query")
+
+        div_columns = {}
+        for col in aggColumns:
+            name = self.columnsProv[col]
+            _aggColumns = [i for i, item in enumerate(self.columnsProv) if item == name]
+            if len(_aggColumns) > 1:
+                div_columns[name] = _aggColumns
+            if len(_aggColumns) > 1:
+                for _index in _aggColumns:
+                    if _index not in aggColumns:
+                        _aggColumnsIndex.append(_index)
+                        
+
+        aggColumns.extend(_aggColumnsIndex)
 
         for i, row in enumerate(self.resultProv):
             toDelete = False
@@ -95,11 +111,19 @@ class ResultValidation:
                             raise ValueError("Validation of aggregation columns failed")
                     else:
                         self.resultProv[i] = poly.solveAggRows(
-                            row, aggColumns, toDeleteExp
+                            row, aggColumns, toDeleteExp, div_columns
                         )
+                        
                 newResult.append(self.resultProv[i])
 
         self.resultProv = newResult
+        end_time = time.time()
+        print(
+            f"Validation of symbolic expressions and aggregation columns took {end_time - start_time} seconds"
+        )
+        if len(_aggColumnsIndex) > 0:
+            for index in _aggColumnsIndex:
+                self.columnsProv.pop(index)
         return self.compareResults()
 
     def validateAggColumns(self, result, aggColumns):
@@ -118,6 +142,7 @@ class ResultValidation:
         return True
 
     def compareResults(self):
+        start_time = time.time()
         self.result = [self.convert_decimals(row) for row in self.result]
         self.resultProv = [self.convert_decimals(row) for row in self.resultProv]
 
@@ -172,6 +197,10 @@ class ResultValidation:
         else:
             non_numeric_equal = True
 
+        end_time = time.time()
+        print(
+            f"Comparison of results took {end_time - start_time} seconds"
+        )
         return numeric_equal and non_numeric_equal
 
     def getProvenanceResult(self):

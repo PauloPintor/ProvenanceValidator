@@ -23,7 +23,7 @@ class AlternativeValidation:
         for i, row in enumerate(self.resultProv):
             polynomial = row[idx]
             polynomial = polynomial.replace("δ", "")
-            polynomial = polynomial.replace("⊗", "*").replace("⊕", "+")
+            polynomial = polynomial.replace("⊗", "*").replace("⊕", "+").replace(".", "*")
             try:
                 # Your code that may trigger recursion error
                 result = eval(mt.replace_words_with_fixed_number(polynomial))
